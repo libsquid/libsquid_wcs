@@ -18,4 +18,4 @@ For more information see http://libsquid.github.io, the wiki, and the
 pdf documentation in the libsquid_doc repository.
 
 This library is released under the LGPL license.  If you use it, please let
-me know via email to jwren@lanl.gov.
+me know via email to jwren@lanl.gov.  Enjoy!
