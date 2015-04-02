@@ -43,6 +43,8 @@ int main(int argc, char *argv[]) {
   long naxes[2];
   int nkeyrec, nreject, nwcs;
   double ra,dec,x,y;
+  struct sip_param sparam; // sip param struct
+  double xsip, ysip; // sip output
 
   if (argc != 4) {
     printf("Example usage...\n");
@@ -63,6 +65,11 @@ int main(int argc, char *argv[]) {
     fits_report_error(stderr, status);
     exit(-1);
   }
+  // read SIP parameters if any
+  if (sip_read(fptr, &sparam) < 0) {
+    // read of sip failed, ignore sip correction
+    sparam.have_sip=0;
+  }
   // Remove SCAMP PV* headers because they screw up wcslib
   for (i=0; i<1000; i++) {
     if (fits_delete_key(fptr,"PV?_*", &status)) {
@@ -82,12 +89,21 @@ int main(int argc, char *argv[]) {
     printf("%d rejected keywords\n",nreject);
     exit(-1);
   }
+
   // Now covert ra,dec to x,y
   if (wcs_rd2pix(wcs,ra,dec,&x,&y) < 0) {
     fprintf(stderr,"wcs_rd2pix failed in %s\n",argv[0]);
     exit(-1);
   }
-  printf("%.3f %.3f\n",x,y);
+
+  // Now apply sip correction
+  if (sparam.have_sip) {
+    if (sip_reverse(&sparam, x, y, &xsip, &ysip) < 0) {
+       fprintf(stderr,"sip_reverse failed in %s\n",argv[0]);
+       exit(-1);
+    }
+  }
+  printf("x=%.3f y=%.3f\n",xsip,ysip);
 
   free(header);
   free(wcs);

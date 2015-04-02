@@ -44,6 +44,8 @@ int main(int argc, char *argv[]) {
   long naxes[2];
   int nkeyrec, nreject, nwcs;
   double ra,dec,x,y;
+  struct sip_param sparam; // sip param struct
+  double xsip, ysip; // sip output
 
   if (argc != 4) {
     printf("Example usage...\n");
@@ -62,6 +64,11 @@ int main(int argc, char *argv[]) {
   if (fits_get_img_param(fptr, 2, &bitpix, &naxis, naxes, &status)) {
     fits_report_error(stderr, status);
     exit(-1);
+  }
+  // read SIP parameters if any
+  if (sip_read(fptr, &sparam) < 0) {
+     // read of sip failed, ignore sip correction
+     sparam.have_sip=0;
   }
   // Remove SCAMP PV* headers because they screw up wcslib
   for (i=0; i<1000; i++) {
@@ -82,12 +89,19 @@ int main(int argc, char *argv[]) {
     fprintf(stderr,"%d rejected keywords\n",nreject);
     exit(-1);
   }
+  // apply sip correction
+  if (sparam.have_sip) {
+    if (sip_forward(&sparam, x, y, &xsip, &ysip) < 0) {
+       fprintf(stderr,"sip_forward failed in %s\n",argv[0]);
+       exit(-1);
+    }
+  }
   // Now covert ra,dec to x,y
-  if (wcs_pix2rd(wcs,x,y,&ra,&dec) < 0) {
+  if (wcs_pix2rd(wcs,xsip,ysip,&ra,&dec) < 0) {
     fprintf(stderr,"wcs_rd2pix failed in %s\n",argv[0]);
     exit(-1);
   }
-  printf("%.3f %.3f\n",ra,dec);
+  printf("%.5f %.5f\n",ra,dec);
 
   free(header);
   free(wcs);
