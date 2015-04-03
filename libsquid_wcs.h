@@ -24,10 +24,10 @@
 #ifndef LIBSQUIDWCS_H
 #define LIBSQUIDWCS_H
 
-#define LIBSQUIDWCS_VERSION "0.6.0"
+#define LIBSQUIDWCS_VERSION "0.6.1"
 #define LIBSQUIDWCS_MAJOR 0
 #define LIBSQUIDWCS_MINOR 6
-#define LIBSQUIDWCS_AGE 0
+#define LIBSQUIDWCS_AGE 1
 #define LIBSQUIDWCS_RELEASE ""
 
 #ifdef __cplusplus
@@ -84,6 +84,7 @@ struct sip_param {
 
 int wcs_pix2rd(struct wcsprm *wcs, double x, double y, double *ra, double *dec);
 int wcs_rd2pix(struct wcsprm *wcs, double ra, double dec, double *x, double *y);
+int wcs_addquid(int proj, struct wcsprm *wcs, int k, double x, double y, squid_type squidarr[], long *nidx);
 int wcs_getsquids(int proj, struct wcsprm *wcs, double cdelt,long naxes[], int k, squid_type squidarr[], long *nidx);
 int tile_getwcs(int proj, squid_type squid, squid_type tside, struct wcsprm **wcs);
 int quadcube_getwcs(int proj, squid_type squid, squid_type tside, struct wcsprm **wcs);

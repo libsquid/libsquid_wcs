@@ -23,56 +23,101 @@
 
 #include <libsquid_wcs.h>
 
+// Check image coords for squid and add to squid array if not there already
+int wcs_addsquid(int projection, struct wcsprm *wcs, int k, double x, double y, squid_type squidarr[], long *nidx) {
+  int i;
+  long count;
+  double ra,dec,ra_rad,dec_rad;
+  squid_type squid;
+
+  count=*nidx; // number of elements in squidarr   
+
+  if (wcs_pix2rd(wcs,x,y,&ra,&dec) < 0) {
+    fprintf(stderr,"wcs_pix2rd failed in wcs_addsquid\n");
+    return(-1); 
+  }
+  ra_rad=fmod(ra*DD2R+2*PI,2*PI);
+  dec_rad=dec*DD2R;
+  if (sph2squid(projection,ra_rad,dec_rad,k,&squid) == -1) {
+    fprintf(stderr,"sph2squid failed in wcs_addsquid\n");
+    return(-1);
+  }
+  for (i=0; i<count; i++) {
+    if (squidarr[i]==squid) {
+      // squid aready in array
+      return(0);
+    }
+  }
+  if (count == ARR_MAX) {
+    // array full
+    return(-1);
+  }
+  squidarr[count]=squid;
+  *nidx=count+1;
+}
+
 //
 // Get array of squid ids at k that are within image
 // squidarr should be initialized with size ARR_MAX
 // nidx is number of ids found
 //
-int wcs_getsquids(int projection, struct wcsprm *wcs, double cdelt,long naxes[], int k, squid_type squidarr[], long *nidx) {
+int wcs_getsquids(int projection, struct wcsprm *wcs, double cdelt, long naxes[], int k, squid_type squidarr[], long *nidx) {
   double N; // Nside
   double omega; // healpix width in deg
   double x,y,step; // img coords, step size
-  double ra,dec,ra1,dec1; // ra and dec in deg and in rad
-  squid_type squid1; // individual squid id
-  long count; // count of ids
   long i; // subloop counter
-  int dup; // duplicate flag
 
   N=pow(2,(double)k);
   omega=90.0/N; // in degrees
   step=floor(omega/(4*cdelt));
   //printf("omega=%.3f step=%.3f\n",omega,step);
 
-  count=0;
-  for (y=0; y<naxes[1]; y=y+step) {
-    for (x=0; x<naxes[0]; x=x+step) {
-      dup=0;
-      if (wcs_pix2rd(wcs,x,y,&ra,&dec) < 0) {
-        continue;
-      }
-      ra1=fmod(ra*DD2R+2*PI,2*PI);
-      dec1=dec*DD2R;
-      if (sph2squid(projection,ra1,dec1,k,&squid1) == -1) {
-	fprintf(stderr,"sph2squid failed in wcs_getsquids\n");
-	return(-1);
-      }
-      for (i=0; i<count; i++) {
-        if (squidarr[i]==squid1) {
-          dup=1;
-          break;
-        }
-      }
-      if (dup) continue;
-      squidarr[count]=squid1;
-      count++;
-      if (count == ARR_MAX) break;
+  // first search all pix on edge of image
+  x=0;
+  for (y=0; y<naxes[1]; y=y+1) {
+    if (wcs_addsquid(projection, wcs, k, x, y, squidarr, nidx) < 0) {
+      // reached array limit...
+      fprintf(stderr,"wcs_getsquids reached array limit!\n");
+      return(-1);
+    }
+  }
+  x=naxes[0]-1;
+  for (y=0; y<naxes[1]; y=y+1) {
+    if (wcs_addsquid(projection, wcs, k, x, y, squidarr, nidx) < 0) {
+      // reached array limit...
+      fprintf(stderr,"wcs_getsquids reached array limit!\n");
+      return(-1);
+    }
+  }
+  y=0;
+  for (x=0; x<naxes[0]; x=x+1) {
+    if (wcs_addsquid(projection, wcs, k, x, y, squidarr, nidx) < 0) {
+      // reached array limit...
+      fprintf(stderr,"wcs_getsquids reached array limit!\n");
+      return(-1);
+    }
+  }
+  y=naxes[1]-1;
+  for (x=0; x<naxes[0]; x=x+1) {
+    if (wcs_addsquid(projection, wcs, k, x, y, squidarr, nidx) < 0) {
+      // reached array limit...
+      fprintf(stderr,"wcs_getsquids reached array limit!\n");
+      return(-1);
     }
   }
 
-  *nidx = count;
+  // now search grid in interior
+  for (y=0; y<naxes[1]; y=y+step) {
+    for (x=0; x<naxes[0]; x=x+step) {
+       if (wcs_addsquid(projection, wcs, k, x, y, squidarr, nidx) < 0) {
+         // reached array limit...
+         fprintf(stderr,"wcs_getsquids reached array limit!\n");
+         return(-1);
+       }
+    }
+  }
 
   return(0);
-
 }
 
 // Get wcs struct for a given squid for any tside
