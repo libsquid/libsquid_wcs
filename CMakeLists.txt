@@ -18,123 +18,157 @@
 # Copyright 2014 James Wren and Los Alamos National Laboratory
 #
 
-project(LIBSQUIDWCS)
 cmake_minimum_required(VERSION 2.8)
 
-# Read libsquid_wcs.h and get version and release string
-file(READ "${LIBSQUIDWCS_SOURCE_DIR}/libsquid_wcs.h" LIBSQUIDWCS_H)
-string(FIND "${LIBSQUIDWCS_H}" "LIBSQUIDWCS_VERSION" LIBSQUIDWCS_VERSION_CHECK)
-if (LIBSQUIDWCS_VERSION_CHECK EQUAL -1)
-   message(FATAL_ERROR "version number not in libsquid_wcs.h")
-endif()
-string(REGEX REPLACE ".*#define LIBSQUIDWCS_VERSION[^0-9]*([0-9]+)\\.([0-9]+)\\.([0-9]+).*" 
-	     "\\1.\\2.\\3" LIBSQUIDWCS_VERSION_STRING "${LIBSQUIDWCS_H}")
-if (LIBSQUIDWCS_VERSION_STRING STREQUAL ifdef)
-   message(FATAL_ERROR "version string not set in libsquid_wcs.h")
-endif()
-message("LIBSQUIDWCS_VERSION_STRING ${LIBSQUIDWCS_VERSION_STRING}")
-string(FIND "${LIBSQUIDWCS_H}" "LIBSQUIDWCS_RELEASE" LIBSQUIDWCS_RELEASE_CHECK)
-if (LIBSQUIDWCS_RELEASE_CHECK EQUAL -1)
-   set(LIBSQUIDWCS_RELEASE_STRING "")
-else()
-   string(REGEX REPLACE ".*#define LIBSQUIDWCS_RELEASE[^0-9a-zA-Z\\.]*([0-9a-zA-Z\\.\\-]+).*" 
-   	     "\\1" LIBSQUIDWCS_RELEASE_STRING "${LIBSQUIDWCS_H}")
-   if (LIBSQUIDWCS_RELEASE_STRING STREQUAL ifdef)
-      set(LIBSQUIDWCS_RELEASE_STRING "")
-   endif()
-   message("LIBSQUIDWCS_RELEASE_STRING ${LIBSQUIDWCS_RELEASE_STRING}")
-endif()
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
-		      "${CMAKE_SOURCE_DIR}/cmake_modules"
-		      "${CMAKE_SOURCE_DIR}/../cmake_modules")
+    "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-# Get list of source and header files
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-file(GLOB LIBSQUIDWCS_SOURCES *.c)
-file(GLOB LIBSQUIDWCS_HEADERS *.h)
+# Use sensible default for undefined LIB_SUFFIX
+if (NOT DEFINED LIB_SUFFIX)
+  if(NOT (CMAKE_SIZEOF_VOID_P EQUAL 4))
+    set(LIB_SUFFIX 64)
+  endif()
+endif()
+# Force LIB_SUFFIX availability in ccmake
+set(LIB_SUFFIX ${LIB_SUFFIX} CACHE STRING "Library suffix, appended to library path.")
+mark_as_advanced(LIB_SUFFIX)
+
+# Parse libsquid_wcs.h LIBSQUIDWCS_VERSION
+file(STRINGS "${CMAKE_SOURCE_DIR}/libsquid_wcs.h" LIBSQUIDWCS_VERSION_STRING REGEX
+     "^[ \t]*#define[ \t]+LIBSQUIDWCS_VERSION[ \t]+\"[0-9]+\\.[0-9]+\\.[0-9]+\"[ \t]*$")
+if (LIBSQUIDWCS_VERSION_STRING STREQUAL "")
+  message(FATAL_ERROR "LIBSQUIDWCS_VERSION not found in libsquid_wcs.h")
+endif()
+string(REGEX REPLACE ".*\"([0-9]+)\\.([0-9]+)\\.([0-9]+)\".*" "\\1.\\2.\\3"
+       LIBSQUIDWCS_VERSION_STRING "${LIBSQUIDWCS_VERSION_STRING}")
+# Parse libsquid_wcs.h LIBSQUIDWCS_RELEASE
+file(STRINGS "${CMAKE_SOURCE_DIR}/libsquid_wcs.h" LIBSQUIDWCS_RELEASE_STRING REGEX
+     "^[ \t]*#define[ \t]+LIBSQUIDWCS_RELEASE[ \t]+\"[0-9]+\"[ \t]*$")
+if (LIBSQUIDWCS_RELEASE_STRING STREQUAL "")
+  message(FATAL_ERROR "LIBSQUIDWCS_RELEASE not found in libsquid_wcs.h")
+endif()
+string(REGEX REPLACE ".*\"([0-9]+)\".*" "\\1"
+       LIBSQUIDWCS_RELEASE_STRING "${LIBSQUIDWCS_RELEASE_STRING}")
+
+# Overall project options
+project(LIBSQUIDWCS)
+set(PACKAGE_VERSION "${LIBSQUIDWCS_VERSION_STRING}")
+set(LIBSQUIDWCS_VERSION "${LIBSQUIDWCS_VERSION_STRING}")
+set(LIBSQUIDWCS_RELEASE "${LIBSQUIDWCS_RELEASE_STRING}")
+
+option(BUILD_SHARED_LIBS "Build shared libraries." ON)
+option(BUILD_STATIC_LIBS "Build static libraries." OFF)
 
 # Find necessary libraries
-if (NOT CMAKE_PROJECT_NAME STREQUAL SQUIDALL)
-   find_package(LIBSQUID REQUIRED)
-   message("LIBSQUID_FOUND = ${LIBSQUID_FOUND}")
-   message("LIBSQUID_INCLUDE_DIR = ${LIBSQUID_INCLUDE_DIR}")
-   message("LIBSQUID_LIBRARIES = ${LIBSQUID_LIBRARIES}")
-   if (NOT LIBSQUID_FOUND)
-      message(FATAL_ERROR "LIBSQUID library not found")
-   endif() 
+#libsquid
+find_package(LIBSQUID REQUIRED)
+if (${LIBSQUID_VERSION_STRING} VERSION_LESS "0.5.3")
+  message(FATAL_ERROR "LIBSQUID version ${LIBSQUID_VERSION_STRING} is too old")
 endif()
-if (${LIBSQUID_VERSION_STRING} VERSION_LESS "0.5")
-   message(FATAL_ERROR "LIBSQUID version ${LIBSQUID_VERSION_STRING} is too old")
-endif()
+#cfitsio
 find_package(CFITSIO REQUIRED)
 if (${CFITSIO_VERSION_STRING} VERSION_LESS "3.0")
-   message(FATAL_ERROR "CFITSIO version ${CFITSIO_VERSION_STRING} is too old")
+  message(FATAL_ERROR "CFITSIO version ${CFITSIO_VERSION_STRING} is too old")
 endif()
+#wcslib
 find_package(WCSLIB REQUIRED)
 if (${WCSLIB_VERSION_STRING} VERSION_LESS "4.19")
-   message(FATAL_ERROR "WCSLIB version ${WCSLIB_VERSION_STRING} is too old")
+  message(FATAL_ERROR "WCSLIB version ${WCSLIB_VERSION_STRING} is too old")
 endif()
-include_directories(${LIBSQUID_SOURCE_DIR}
-	${LIBSQUID_INCLUDE}
-	${CFITSIO_INCLUDE_DIR}
-	${WCSLIB_INCLUDE_DIR})
-set(LIBS ${LIBS}
-	 ${CFITSIO_LIBRARIES}
-	 ${WCSLIB_LIBRARIES})
-link_libraries(${LIBS})
 
-add_library(libsquidwcs_static STATIC ${LIBSQUIDWCS_SOURCES})
-set_target_properties(libsquidwcs_static PROPERTIES OUTPUT_NAME squid_wcs)
-add_library(libsquidwcs_shared SHARED ${LIBSQUIDWCS_SOURCES})
-set_target_properties(libsquidwcs_shared PROPERTIES 
-			     OUTPUT_NAME squid_wcs
-			     SOVERSION ${LIBSQUIDWCS_VERSION_STRING})
+# Build options
+set(LIBS squid_wcs)
+set(LIBS_PRIVATE
+  ${LIBSQUID_LIBRARIES}
+  ${CFITSIO_LIBRARIES}
+  ${WCSLIB_LIBRARIES}
+  m)
+include_directories(
+  ${LIBSQUIDWCS_SOURCE_DIR}
+  ${LIBSQUID_INCLUDEDIR}
+  ${CFITSIO_INCLUDEDIR}
+  ${WCSLIB_INCLUDEDIR})
+link_directories(${LIBSQUIDWCS_BINARY_DIR})
+link_libraries(${LIBS_PRIVATE})
+
+# Additional builds
 add_subdirectory(bin)
 
-add_custom_target(libsquidwcs_dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)
+# Generate list of source and header files
+file(GLOB LIBSQUIDWCS_HEADERS *.h)
+file(GLOB LIBSQUIDWCS_SOURCES *.c)
 
-#install(TARGETS libsquidwcs_static libsquidwcs_shared
-#	RUNTIME DESTINATION bin COMPONENT Runtime
-#	LIBRARY DESTINATION lib COMPONENT Runtime
-#	ARCHIVE DESTINATION lib COMPONENT Develop
-#)
-install(TARGETS libsquidwcs_static
-	LIBRARY	DESTINATION lib
-	ARCHIVE	DESTINATION lib
-	COMPONENT libsquidwcs
-)
-install(TARGETS libsquidwcs_shared
-	LIBRARY	DESTINATION lib
-	ARCHIVE	DESTINATION lib
-	COMPONENT libsquidwcs
-)
+# Define targets and installs
+if (BUILD_SHARED_LIBS)
+  add_library(libsquidwcs_shared SHARED ${LIBSQUIDWCS_SOURCES})
+  set_target_properties(libsquidwcs_shared PROPERTIES
+                        OUTPUT_NAME squid_wcs
+                        SOVERSION ${LIBSQUIDWCS_VERSION_STRING})
+  install(TARGETS libsquidwcs_shared
+          LIBRARY DESTINATION lib${LIB_SUFFIX}
+          RUNTIME DESTINATION lib${LIB_SUFFIX}
+          COMPONENT libsquidwcs)
+endif()
+if (BUILD_STATIC_LIBS)
+  add_library(libsquidwcs_static STATIC ${LIBSQUIDWCS_SOURCES})
+  set_target_properties(libsquidwcs_static PROPERTIES
+                        OUTPUT_NAME squid_wcs)
+  install(TARGETS libsquidwcs_static
+          ARCHIVE DESTINATION lib${LIB_SUFFIX}
+          COMPONENT libsquidwcs)
+endif()
 install(FILES ${LIBSQUIDWCS_HEADERS} 
-	DESTINATION include
-	COMPONENT libsquidwcs
-)
+        DESTINATION include
+        COMPONENT libsquidwcs-devel)
 
+# Define packages
 set(CPACK_PACKAGE_NAME "libsquid_wcs")
-set(CPACK_PACKAGE_VERSION ${LIBSQUIDWCS_VERSION_STRING})
-if (LIBSQUIDWCS_RELEASE_STRING STREQUAL "")
-   set(CPACK_PACKAGE_RELEASE "")
-else()
-   set(CPACK_PACKAGE_RELEASE "~${LIBSQUIDWCS_RELEASE_STRING}")
-endif()
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY 
-    "The LibSQUID WCS Interface Library")
-set(CPACK_PACKAGE_CONTACT "Jim Wren; jwren@lanl.gov")
+set(CPACK_PACKAGE_VERSION ${LIBSQUIDWCS_VERSION})
+set(CPACK_PACKAGE_RELEASE ${LIBSQUIDWCS_RELEASE})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The LibSQUID WCS Interface Library")
+set(CPACK_PACKAGE_CONTACT "Jim Wren, jwren@lanl.gov, Los Alamos National Laboratory")
 set(CPACK_PACKAGE_VENDOR ${CPACK_PACKAGE_CONTACT})
-if (NOT LIBSQUIDWCS_RELEASE_STRING STREQUAL "")
-   set(CPACK_RPM_PACKAGE_RELEASE "${LIBSQUIDWCS_RELEASE_STRING}")
-endif()
-set(CPACK_RPM_PACKAGE_REQUIRES "libsquid > 0.5, cfitsio >= 3.0, wcslib >= 4.19")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsquid (> 0.5), cfitsio (>= 3.0), wcslib (>= 4.19)")
+set(CPACK_RPM_PACKAGE_REQUIRES "libsquid >= 0.5.3, cfitsio >= 3.0, wcslib >= 4.19")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsquid (>= 0.5.3), cfitsio (>= 3.0), wcslib (>= 4.19)")
 set(CPACK_GENERATOR "RPM" "DEB")
 set(CPACK_SOURCE_GENERATOR "TGZ")
-set(CPACK_SOURCE_IGNORE_FILES "~$;[.]bak$/;[.]swp$;[.]svn$")
+set(CPACK_SOURCE_IGNORE_FILES "~$" "[.]bak$" "[.]swp$" "[.]svn$")
 set(CPACK_PACKAGE_DIRECTORY ${CMAKE_BINARY_DIR}/packages)
 set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
-set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}${CPACK_PACKAGE_RELEASE}.${CMAKE_SYSTEM_PROCESSOR}")
-set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}${CPACK_PACKAGE_RELEASE}")
+set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST
+    "${CMAKE_INSTALL_PREFIX}"
+    "${CMAKE_INSTALL_PREFIX}/include"
+    "${CMAKE_INSTALL_PREFIX}/bin"
+    "${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}"
+    "${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}/pkgconfig")
+set(CPACK_RPM_PACKAGE_RELEASE ${LIBSQUIDWCS_RELEASE})
+set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}")
 include(CPack)
+
+# Define package_source
+add_custom_target(libsquidwcs_dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)
+
+# Prepare pkg-config
+if (UNIX)
+  # Vars
+  SET(PC_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+  SET(PC_INCLUDEDIR ${CMAKE_INSTALL_PREFIX}/include)
+  # Libs
+  foreach(libname ${LIBS})
+    set (PC_LIBS_STR ${PC_LIBS_STR} "-l${libname}")
+  endforeach()
+  string(REPLACE ";" " " PC_LIBS_STR "${PC_LIBS_STR}")
+  # Libs.private
+  foreach(libname ${LIBS_PRIVATE})
+    set (PC_LIBS_PRIVATE_STR ${PC_LIBS_PRIVATE_STR} "-l${libname}")
+  endforeach()
+  string(REPLACE ";" " " PC_LIBS_PRIVATE_STR "${PC_LIBS_PRIVATE_STR}")
+  # Replace
+  configure_file(${LIBSQUIDWCS_SOURCE_DIR}/libsquid_wcs.pc.in
+                 ${LIBSQUIDWCS_BINARY_DIR}/libsquid_wcs.pc @ONLY)
+  # Install
+  INSTALL(FILES ${LIBSQUIDWCS_BINARY_DIR}/libsquid_wcs.pc
+          DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}/pkgconfig
+          COMPONENT libsquid_wcs-utilities)
+endif()

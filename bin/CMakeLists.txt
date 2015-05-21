@@ -19,16 +19,18 @@
 #
 
 cmake_minimum_required(VERSION 2.8)
-file(GLOB LIBSQUIDWCS_EXE RELATIVE ${LIBSQUIDWCS_SOURCE_DIR}/bin *.c)
-include_directories(AFTER "../libsquid" 
-			  ${LIBSQUIDWCS_SOURCE_DIR}
-			  ${LIBSQUID_SOURCE_DIR}
-			  ${CFITSIO_INCLUDE_DIR}
-			  ${LIBWCS_INCLUDE_DIR})
-link_directories(${LIBSQUIDWCS_BINARY_DIR} ${LIBSQUID_BINARY_DIR})
-link_libraries(squid squid_wcs ${CFITSIO_LIBRARIES} ${WCSLIB_LIBRARIES} m)
 
-foreach(infile ${LIBSQUIDWCS_EXE})
-   string(REPLACE ".c" "" outfile ${infile})
-   add_executable(${outfile} ${infile})
-endforeach(infile)
+# Generate list of source files
+file(GLOB LIBSQUIDWCS_EXE RELATIVE ${LIBSQUIDWCS_SOURCE_DIR}/bin *.c)
+
+# Build options
+link_libraries(${LIBS})
+
+# Define targets and installs
+foreach(INFILE ${LIBSQUIDWCS_EXE})
+   string(REPLACE ".c" "" OUTFILE ${INFILE})
+   add_executable(${OUTFILE} ${INFILE})
+   install(TARGETS ${OUTFILE}
+           RUNTIME DESTINATION bin
+           COMPONENT libsquidwcs)
+endforeach(INFILE)

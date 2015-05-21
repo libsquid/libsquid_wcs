@@ -26,38 +26,38 @@
 // Given a wcs struct, convert image x,y to sky ra,dec (in deg).
 // Header arg necessary to check for sip distortions which are not handled by wcslib.
 int wcs_pix2rd(struct wcsprm *wcs, double x, double y, double *ra, double *dec) {
-  double pixcrd[2],imgcrd[2],phi[1],theta[1],wcor[2];
-  int status, wstat[1];
+   double pixcrd[2],imgcrd[2],phi[1],theta[1],wcor[2];
+   int status, wstat[1];
 
-  pixcrd[0]=x;
-  pixcrd[1]=y;
-  if ((status=wcsp2s(wcs,1,2,pixcrd,imgcrd,phi,theta,wcor,wstat)) > 0) {
-    fprintf(stderr, "wcsp2s returned status=%d wstat=%d in hpxwcs_pix2rd()\n", status, wstat[0]);
-    return(-1);
-  }
-  *ra = wcor[0];
-  *dec = wcor[1];
+   pixcrd[0]=x;
+   pixcrd[1]=y;
+   if ((status=wcsp2s(wcs,1,2,pixcrd,imgcrd,phi,theta,wcor,wstat)) > 0) {
+      fprintf(stderr, "wcsp2s returned status=%d wstat=%d in hpxwcs_pix2rd()\n", status, wstat[0]);
+      return(-1);
+   }
+   *ra = wcor[0];
+   *dec = wcor[1];
 
-  return(0);
+   return(0);
 }
 
 // Given a wcs struct, convert sky ra,dec (in deg) to image x,y
 // Header arg necessary to check for sip distortions which are not handled by wcslib.
 int wcs_rd2pix(struct wcsprm *wcs, double ra, double dec, double *x, double *y) {
-  double pixcrd[2],imgcrd[2],phi[1],theta[1],wcor[2];
-  int status, wstat[1];
+   double pixcrd[2],imgcrd[2],phi[1],theta[1],wcor[2];
+   int status, wstat[1];
 
-  wcor[0]=ra;
-  wcor[1]=dec;
-  if ((status=wcss2p(wcs,1,2,wcor,phi,theta,imgcrd,pixcrd,wstat)) > 0) {
-    //fprintf(stderr, "wcss2p returned status=%d in wcs_rd2pix\n", status);
-    fprintf(stderr,"wcss2p returned status=%d wstat=%d in wcs_rd2pix\n", status, wstat[0]);
-    return(-1);
-  }
-  *x = pixcrd[0];
-  *y = pixcrd[1];
+   wcor[0]=ra;
+   wcor[1]=dec;
+   if ((status=wcss2p(wcs,1,2,wcor,phi,theta,imgcrd,pixcrd,wstat)) > 0) {
+      //fprintf(stderr, "wcss2p returned status=%d in wcs_rd2pix\n", status);
+      fprintf(stderr,"wcss2p returned status=%d wstat=%d in wcs_rd2pix\n", status, wstat[0]);
+      return(-1);
+   }
+   *x = pixcrd[0];
+   *y = pixcrd[1];
 
-  return(0);
+   return(0);
 }
 
 // Read in SIP keywords from header.

@@ -9,8 +9,20 @@ should work properly.
 Currently the build system in use is cmake.  The best way to
 build the system is to make a build directory in the location
 of your choice, cd to it, and then run:
-> cmake [-DCMAKE_INSTALL_PREFIX:PATH=/install/path] /path/to/libsquid_wcs
+> cmake [OPTIONS] /path/to/libsquid_wcs
+#Options:
+#  -DBUILD_SHARED_LIBS=(OFF|ON)
+#  -DBUILD_STATIC_LIBS=(OFF|ON)
+#  -DCMAKE_INSTALL_PREFIX=/install/path
+#  -DLIB_SUFFIX=(""|64)
+#  -DLIBSQUID_INCLUDEDIR=/path/to/libsquid/include
+#  -DLIBSQUID_LIBDIR=/path/to/libsquid/lib
 > make
+
+The -DLIB_SUFFIX parameter determines whether the library is placed
+in /usr/lib or /usr/lib64.  If the argument is not given then cmake
+will try to decide on its own.
+
 At this point the library is compiled locally to your build directory.
 There are several utility programs located in the bin/ subdir of your
 build directory.  Most of these programs will give a short usage message
